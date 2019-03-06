@@ -1,1 +1,0 @@
-{"result":{"text":"f-th root of b a b u end root"},"status":"ok"}

@@ -1,1 +1,0 @@
-{"result":{"text":"d square root of d"},"status":"ok"}

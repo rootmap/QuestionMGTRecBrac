@@ -43,3 +43,11 @@
     </fieldset>
 
 <?php echo form_close(); ?>
+
+<script type="text/javascript">
+    $(document).ready(function(){
+       /* $(".control-group").click(function(){
+            alert('dd');
+        });*/
+    });
+</script>
