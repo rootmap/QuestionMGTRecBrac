@@ -1,0 +1,21 @@
+
+
+/* font-family: 'Ubuntu',Tahoma,sans-serif; */
+@font-face {
+  font-family: 'Ubuntu';
+  font-style: normal;
+  font-weight: normal;
+  src: url('Ubuntu-Regular.eot');
+  src: local('Ubuntu'), local('Ubuntu'), url('Ubuntu-Regular.ttf') format('truetype');
+}
+
+/* font-family: 'PT Sans', sans-serif; */
+@font-face {
+  font-family: 'PT Sans';
+  font-style: normal;
+  font-weight: 400;
+  src: url('PTSans-Regular.eot');
+  src: local('PT Sans'), local('PTSans-Regular'), url('PTSans-Regular.eot') format('embedded-opentype'), url('PTSans-Regular.woff') format('woff');
+}
+
+

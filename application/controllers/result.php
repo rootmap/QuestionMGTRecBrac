@@ -1,0 +1,127 @@
+<?php if ( ! defined('BASEPATH')) exit('No direct script access allowed');
+ 
+class Result extends MY_Controller
+{
+    var $current_page = "result-summary";
+    var $logged_in_user = false;
+    var $tbl_exam_users_activity    = "exm_user_activity";
+
+    function __construct()
+    {
+        parent::__construct();
+        $this->load->model('result_model');
+        $this->load->model('user_exam_model');
+
+       $this->load->model('global/insert_global_model');
+
+        $this->logged_in_user = $this->session->userdata('logged_in_user');
+
+
+        // check if already logged in
+        if ( ! $this->logged_in_user) {
+            $redirect_url = preg_replace('/(delete|update.*|(add).*)\/?[0-9]*$/', '$2', uri_string());
+            $this->session->set_flashdata('redirect_url', $redirect_url);
+            redirect('login');
+        } else {
+            if ($this->logged_in_user->user_type == 'Administrator' || $this->logged_in_user->user_type == 'Super Administrator') {
+                redirect('administrator/dashboard');
+            }
+            if ((int)$this->logged_in_user->user_is_default_password == 1) {
+            	redirect('profile/password');
+            }
+        }
+
+
+        if ($this->input->post('user_exam_id')) {
+
+            $user_exam_id = (int)$this->input->post('user_exam_id');
+            $this->session->set_flashdata('user_exam_id', $user_exam_id);
+
+            $referer_page = $this->input->post('referer_page');
+            if ($referer_page) {
+                $this->session->set_flashdata('referer_page', $referer_page);
+            }
+
+            redirect('result');
+        }
+    }
+
+    public function index()
+    {
+
+        $update_data = $this->insert_global_model->globalinsert($this->tbl_exam_users_activity,array('user_id'=>$this->logged_in_user->id,
+            'activity_time'=>date('Y-m-d H:i:s'),'activity'=>'Summary of Result'));
+
+        $page_info['title'] = 'Summary of Result'. $this->site_name;
+        $page_info['view_page'] = 'user/result_summary_view';
+
+        $user_exam_id = (int)$this->session->flashdata('user_exam_id');
+
+        if ($user_exam_id > 0) {
+
+            $this->session->keep_flashdata('user_exam_id');
+            $result = $this->result_model->get_result_by_user_exam_id($user_exam_id);
+            //print_r_pre($result);die;
+            $page_info['referer_page'] = '';
+            if ($this->session->flashdata('referer_page')) {
+                $page_info['referer_page'] = $this->session->flashdata('referer_page');
+                $this->session->keep_flashdata('referer_page');
+            }
+
+            $exam = unserialize($result->result_exam_state);
+            $page_info['exam'] = $exam;
+            $page_info['result'] = $result;
+
+            //print_r_pre($exam);die;
+
+            $log_message = $this->logged_in_user->user_login .' (User ID: '. $this->logged_in_user->id .') checked a result summary of the exam titled \''. $exam->exam_title .'\' (Exam ID: '. $exam->id .')';
+            log_message("info", $log_message, false, 'checked result summary');
+
+        } else {
+            redirect('home');
+        }
+
+
+        // load view
+		$this->load->view('user/layouts/default', $page_info);
+    }
+
+    public function details()
+    {
+
+        $update_data = $this->insert_global_model->globalinsert($this->tbl_exam_users_activity,array('user_id'=>$this->logged_in_user->id,
+            'activity_time'=>date('Y-m-d H:i:s'),'activity'=>'Result Details View'));
+
+        $page_info['title'] = 'Result Details'. $this->site_name;
+        $page_info['view_page'] = 'user/result_details_view';
+
+
+        $user_exam_id = (int)$this->session->flashdata('user_exam_id');
+        if ($user_exam_id > 0) {
+
+            $this->session->keep_flashdata('user_exam_id');
+            $result = $this->result_model->get_result_by_user_exam_id($user_exam_id);
+            $exam = maybe_unserialize($result->result_exam_state);
+
+            $page_info['exam'] = $exam;
+            $page_info['result'] = $result;
+
+            if ($this->session->flashdata('referer_page')) {
+                $this->session->keep_flashdata('referer_page');
+            }
+
+            $log_message = $this->logged_in_user->user_login .' (User ID: '. $this->logged_in_user->id .') checked detail result of the exam titled \''. $exam->exam_title .'\' (Exam ID: '. $exam->id .')';
+            log_message("info", $log_message, false, 'checked detail result');
+
+        } else {
+            redirect('home');
+        }
+
+
+        // load view
+        $this->load->view('user/layouts/default', $page_info);
+    }
+}
+
+/* End of file result.php */
+/* Location: ./application/controllers/result.php */

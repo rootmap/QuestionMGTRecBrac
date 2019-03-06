@@ -1,0 +1,669 @@
+<?php if ( ! defined('BASEPATH')) exit('No direct script access allowed');
+ 
+class Result_model extends CI_Model
+{
+    private $table_name = 'results';
+    private $table_result_upload = 'result_upload';
+    public $error_message = '';
+
+    function __construct()
+    {
+        parent::__construct();
+    }
+
+    // for frontend use only
+    // only shows results which has been attended
+    public function get_results_by_user($user_id, $duration = 0)
+    {
+        $user_id = (int)$user_id;
+        $duration = "-".$duration;
+        $duration_clause = '';
+
+        if ($duration > 0) {
+            $duration_clause = ' AND result_start_time BETWEEN DATEADD(month,'.$duration .',GETDATE()) AND getdate() ';
+        }
+
+        if ($user_id > 0) {
+
+            $sql = "SELECT *
+                    FROM exm_results LEFT OUTER JOIN exm_user_exams
+                        ON exm_results.user_exam_id = exm_user_exams.id, exm_users, exm_exams
+                    WHERE exm_user_exams.user_id = exm_users.id
+                        AND exm_user_exams.exam_id = exm_exams.id
+                        $duration_clause
+                        AND user_id = $user_id
+                    ORDER BY result_start_time DESC";
+                    //echo $sql; die();
+            $res = $this->db->query($sql);
+
+            return $res->result();
+
+        } else {
+            return false;
+        }
+    }
+
+    public function get_exam_name()
+    {
+        $sql= "SELECT * FROM ".$this->db->dbprefix('exams');
+        $res = $this->db->query($sql);
+        //echo $this->db->last_query(); die();
+        return $res->result();
+    }
+
+
+    public function add_bulk_in_results($results)
+    {
+        $affected_rows = 0;
+
+        if (is_array($results) && count($results) > 0) {
+            $newDataStruct=[];
+            foreach($results as $row):
+
+                $newDataStruct[]=array('user_exam_id'=>$row['user_exam_id']
+                                      ,'result_total_questions'=>$row['result_total_question']
+                                      ,'result_total_answered'=>$row['result_total_answered']
+                                      ,'result_total_correct'=>$row['result_total_correct']
+                                      ,'result_total_wrong'=>$row['result_total_wrong']
+                                      ,'result_exam_score'=>$row['result_exam_score']
+                                      ,'result_user_score'=>$row['result_user_score']
+                                      ,'result_competency_level'=>$row['result_competency_level']
+                                      ,'result_time_spent'=>$row['result_time_spent']
+                                      ,'result_start_time'=>$row['exam_start_time']
+                                      ,'result_end_time'=>$row['exam_end_time']
+                                      ,'result_status'=>$row['result_status']
+                                      ,'neg_mark'=>0);
+            endforeach;    
+
+
+
+
+            $this->db->insert_batch('exm_results', $newDataStruct);
+            $affected_rows = $this->db->affected_rows();
+        }
+
+        return $affected_rows;
+    }
+
+    public function add_bulk_results($results)
+    {
+        $affected_rows = 0;
+
+        //print_r_pre($results);
+
+        if (is_array($results) && count($results) > 0) {
+            $this->db->insert_batch($this->table_result_upload, $results);
+            $affected_rows = $this->db->affected_rows();
+            $this->add_bulk_in_results($results);
+        }
+
+        return $affected_rows;
+    }
+
+    public function get_results_by_team_id($exam_id = 0, $group_id = 0, $team_id = 0, $start_date = '', $end_date = '')
+    {
+        $exam_id = (int)$exam_id;
+        $group_id = (int)$group_id;
+        $team_id = (int)$team_id;
+        $group_where = '';
+        $team_where = '';
+        $date_where = '';
+
+        if ($exam_id > 0) {
+            
+
+            /*$sql = "SELECT
+                        user_exam_id,
+                        CONCAT(user_first_name,' ', user_last_name) as 'user_name',
+                        user_login,
+                        team_name,
+                        result_total_correct,
+                        result_total_wrong,
+                        result_total_dontknow,
+                        result_total_answered,
+                        result_user_score,
+                        ((result_user_score / result_exam_score) * 100) as 'result_user_score_percent',
+                        result_competency_level,
+                        result_start_time,
+                        result_end_time
+                    FROM
+                        exm_results,
+                        exm_user_exams,
+                        exm_users,
+                        exm_user_teams,
+                        exm_user_groups
+                    WHERE exm_results.user_exam_id = exm_user_exams.id
+                    AND exm_user_exams.user_id = exm_users.id
+                    AND exm_users.user_team_id = exm_user_teams.id
+                    AND exm_user_teams.group_id = exm_user_groups.id
+                    AND (result_status = 'complete' or result_status = 'published')
+                    AND exam_id = $exam_id
+                    $group_where
+                    $team_where
+                    $date_where
+                    ORDER BY result_start_time DESC";
+                    //echo $sql; die();*/
+                    $this->db->select("user_exam_id,CONCAT(user_first_name,' ', user_last_name) as user_name,user_login,
+                        team_name,
+                        result_total_correct,
+                        result_total_wrong,
+                        result_total_dontknow,
+                        result_total_answered,
+                        result_exam_state,
+                        result_user_score,
+                        result_exam_score,
+                        CAST (((CAST(NULLIF(result_user_score,0) AS FLOAT)  / CAST(NULLIF(result_exam_score,0) AS FLOAT) ) * 100) AS FLOAT) as 'result_user_score_percent',                       
+                        result_competency_level,
+                        result_start_time,
+                        result_end_time");
+        $this->db->from('exm_results TA');
+        $this->db->join('exm_user_exams TB','TB.id = TA.user_exam_id', 'left');
+        $this->db->join('exm_users TC','TC.id = TB.user_id', 'left');
+        $this->db->join('exm_user_teams TD','TD.id = TC.user_team_id', 'left');
+        $this->db->join('exm_user_groups TE','TE.id = TD.group_id', 'left');
+
+        if ($group_id > 0){
+               // $group_where = " AND group_id = ";
+                $this->db->where('TD.group_id',$group_id);
+            }
+            if($team_id > 0){
+                //$team_where = " AND user_team_id = $team_id ";
+                $this->db->where('TC.user_team_id',$team_id);
+            }
+            if ($start_date != '' && $end_date != '') {
+                $date_where = "('". $start_date ."' <= result_start_time AND DATEADD(DAY,1,'".$end_date."') > result_end_time)";
+                $this->db->where($date_where);
+            }
+            $query = $this->db->get();
+
+            //echo $this->db->last_query(); die();
+            return $query->result();
+
+        } else {
+            $this->error_message = 'Invalid exam id.';
+            return false;
+        }
+    }
+
+    public function get_results_by_user_id($user_id, $start_date = '', $end_date = '')
+    {
+
+        $user_id = (int)$user_id;
+        //echo $user_id; die();
+        $date_where = '';
+//DATEADD(month,'.$duration .',GETDATE())
+        if ($start_date != '' && $end_date != '') {
+            $date_where = " AND ( CAST('". $start_date ."' AS DATE) <= CAST(result_start_time AS DATE) AND DATEADD(DAY,1, CAST('".$end_date."'  AS DATE)) > CAST(result_end_time AS DATE))";
+        }
+
+        if ($user_id > 0) {
+
+            $sql = "SELECT
+                        user_exam_id,
+                        exam_title,
+                        result_total_correct,
+                        result_total_wrong,
+                        result_total_dontknow,
+                        result_total_answered,
+                        result_user_score,
+                        result_exam_score,
+                        result_exam_state,
+                        NULLIF(((NULLIF(result_user_score,0) / NULLIF(result_exam_score,0)) * 100 ),0) AS 'result_user_score_percent', 
+                        result_competency_level,
+                        result_start_time,
+                        result_end_time,
+                        result_status
+                    FROM
+                        exm_results r,
+                        exm_user_exams ue,
+                        exm_exams e
+                    WHERE r.user_exam_id = ue.id
+                    AND ue.exam_id = e.id
+                    AND (result_status = 'complete' or result_status = 'published')
+                    AND ue.user_id = $user_id ".$date_where." ORDER BY result_start_time DESC";
+                    //echo $sql; die();
+            $res = $this->db->query($sql);
+            //echo $this->db->last_query(); die();
+            return $res->result();
+
+        } else {
+            return false;
+        }
+    }
+
+    public function get_attendee_list($exam_id = 0, $group_id = 0, $team_id = 0, $start_date = '', $end_date = '')
+    {
+        $exam_id = (int)$exam_id;
+        $group_id = (int)$group_id;
+        $team_id = (int)$team_id;
+        $group_where = '';
+        $team_where = '';
+        $date_where = '';
+
+        if ($exam_id > 0) {
+ 
+
+           /* $sql = "SELECT
+                        CONCAT(user_first_name, ' ', user_last_name) as 'user_name',
+                        user_login,
+                        team_name,
+                        ue_start_date,
+                        ue_end_date
+                    FROM
+                        exm_user_exams,
+                        exm_users,
+                        exm_user_teams,
+                        exm_user_groups
+                    WHERE exm_user_exams.user_id = exm_users.id
+                    AND exm_users.user_team_id = exm_user_teams.id
+                    AND exm_user_teams.group_id = exm_user_groups.id
+                    AND (ue_status = 'complete' || ue_status = 'pending result')
+                    AND exam_id = $exam_id
+                    $group_where
+                    $team_where
+                    $date_where
+                    ORDER BY team_name, user_login";
+
+            $res = $this->db->query($sql);*/
+
+        $this->db->select("CONCAT(TC.user_first_name, ' ', TC.user_last_name) as user_name,TC.user_login,TD.team_name,ue_start_date,ue_end_date");
+        $this->db->from('exm_results TA');
+        $this->db->join('exm_user_exams TB','TB.id = TA.user_exam_id', 'left');
+        $this->db->join('exm_users TC','TC.id = TB.user_id', 'left');
+        $this->db->join('exm_user_teams TD','TD.id = TC.user_team_id', 'left');
+        $this->db->join('exm_user_groups TE','TE.id = TD.group_id', 'left');
+
+        if ($group_id > 0){
+               // $group_where = " AND group_id = ";
+                $this->db->where('TD.group_id',$group_id);
+            }
+            if($team_id > 0){
+                //$team_where = " AND user_team_id = $team_id ";
+                $this->db->where('TC.user_team_id',$team_id);
+            }
+            if ($start_date != '' && $end_date != '') {
+                $date_where = "('". $start_date ."' <= ue_start_date AND DATEADD(DAY,1,'".$end_date."') > ue_end_date)";
+                $this->db->where($date_where);
+            }
+            $query = $this->db->get();
+
+
+            return $query->result();
+
+        } else {
+            $this->error_message = 'Invalid exam id.';
+            return false;
+        }
+    }
+
+    public function get_attendee_list_count($exam_id = 0, $group_id = 0, $team_id = 0, $start_date = '', $end_date = '')
+    {
+        $exam_id = (int)$exam_id;
+        $group_id = (int)$group_id;
+        $team_id = (int)$team_id;
+        $group_where = '';
+        $team_where = '';
+        $date_where = '';
+
+        if ($exam_id > 0) {
+
+           /* $sql = "SELECT
+                        count(exm_user_exams.id) AS total
+                    FROM
+                        exm_user_exams,
+                        exm_users,
+                        exm_user_teams,
+                        exm_user_groups
+                    WHERE exm_user_exams.user_id = exm_users.id
+                    AND exm_users.user_team_id = exm_user_teams.id
+                    AND exm_user_teams.group_id = exm_user_groups.id
+                    AND (ue_status = 'complete' or ue_status = 'pending result')
+                    AND exam_id = $exam_id
+                    $group_where
+                    $team_where
+                    $date_where
+                    ORDER BY team_name, user_login";
+            $res = $this->db->query($sql);*/
+
+
+
+        $this->db->select("count(TB.id) AS total");
+        $this->db->from('exm_results TA');
+        $this->db->join('exm_user_exams TB','TB.id = TA.user_exam_id', 'left');
+        $this->db->join('exm_users TC','TC.id = TB.user_id', 'left');
+        $this->db->join('exm_user_teams TD','TD.id = TC.user_team_id', 'left');
+        $this->db->join('exm_user_groups TE','TE.id = TD.group_id', 'left');
+        //$this->db->where('exm_results.user_exam_id',$exam_id);
+        if ($group_id > 0){
+               // $group_where = " AND group_id = ";
+                $this->db->where('TD.group_id',$group_id);
+            }
+            if($team_id > 0){
+                //$team_where = " AND user_team_id = $team_id ";
+                $this->db->where('TC.user_team_id',$team_id);
+            }
+            if ($start_date != '' && $end_date != '') {
+                $date_where = "('". $start_date ."' <= result_start_time AND DATEADD(DAY,1,'".$end_date."') > result_end_time)";
+                $this->db->where($date_where);
+            }
+            $query = $this->db->get();
+            //return $query->result();
+
+
+            if ($query->num_rows() > 0) {
+                return (int)$query->row()->total;
+            } else {
+                return 0;
+            }
+
+        } else {
+            $this->error_message = 'Invalid exam id.';
+            return false;
+        }
+    }
+
+    public function get_non_attendee_list($exam_id = 0, $group_id = 0, $team_id = 0, $start_date = '', $end_date = '')
+    {
+        $exam_id = (int)$exam_id;
+        $group_id = (int)$group_id;
+        $team_id = (int)$team_id;
+        $group_where = '';
+        $team_where = '';
+        $date_where = '';
+
+        if ($exam_id > 0) {
+ 
+
+            /*$sql = "SELECT
+                        CONCAT(user_first_name, ' ', user_last_name) as 'user_name',
+                        user_login,
+                        team_name,
+                        ue_start_date,
+                        ue_end_date
+                    FROM
+                        exm_user_exams,
+                        exm_users,
+                        exm_user_teams,
+                        exm_user_groups
+                    WHERE exm_user_exams.user_id = exm_users.id
+                    AND exm_users.user_team_id = exm_user_teams.id
+                    AND exm_user_teams.group_id = exm_user_groups.id
+                    AND (ue_status = 'open' || ue_status = 'paused')
+                    AND exam_id = $exam_id
+                    $group_where
+                    $team_where
+                    $date_where
+                    ORDER BY team_name, user_login";
+            $res = $this->db->query($sql);*/
+
+
+        $this->db->select("CONCAT(TC.user_first_name, ' ', TC.user_last_name) as user_name,TC.user_login,TD.team_name,ue_start_date,ue_end_date");
+        $this->db->from('exm_results TA');
+        $this->db->join('exm_user_exams TB','TB.id = TA.user_exam_id', 'left');
+        $this->db->join('exm_users TC','TC.id = TB.user_id', 'left');
+        $this->db->join('exm_user_teams TD','TD.id = TC.user_team_id', 'left');
+        $this->db->join('exm_user_groups TE','TE.id = TD.group_id', 'left');
+        $this->db->order_by('TD.team_name', 'DESC');
+        $this->db->order_by('TC.user_login', 'DESC');
+        if ($group_id > 0){
+               // $group_where = " AND group_id = ";
+                $this->db->where('TD.group_id',$group_id);
+            }
+            if($team_id > 0){
+                //$team_where = " AND user_team_id = $team_id ";
+                $this->db->where('TC.user_team_id',$team_id);
+            }
+            if ($start_date != '' && $end_date != '') {
+                $date_where = "('". $start_date ."' <= ue_start_date AND DATEADD(DAY,1,'".$end_date."') > ue_end_date)";
+                $this->db->where($date_where);
+            }
+            $this->db->where("ue_status = 'open' or ue_status = 'paused'");
+            $query = $this->db->get();
+
+            return $query->result();
+
+
+
+        } else {
+            $this->error_message = 'Invalid exam id.';
+            return false;
+        }
+    }
+
+    public function get_non_attendee_list_count($exam_id = 0, $group_id = 0, $team_id = 0, $start_date = '', $end_date = '')
+    {
+        $exam_id = (int)$exam_id;
+        $group_id = (int)$group_id;
+        $team_id = (int)$team_id;
+        $group_where = '';
+        $team_where = '';
+        $date_where = '';
+
+        if ($exam_id > 0) {
+
+            /*if ($group_id > 0) {
+                $group_where = " AND group_id = $group_id ";
+            }
+            if ($team_id > 0) {
+                $team_where = " AND user_team_id = $team_id ";
+            }
+            if ($start_date != '' && $end_date != '') {
+                $date_where = " AND ('". $start_date ."' <= ue_start_date AND DATE_ADD('". $end_date ."', INTERVAL 1 DAY) > ue_end_date)";
+            }
+
+            $sql = "SELECT
+                        count(exm_user_exams.id) AS total
+                    FROM
+                        exm_user_exams,
+                        exm_users,
+                        exm_user_teams,
+                        exm_user_groups
+                    WHERE exm_user_exams.user_id = exm_users.id
+                    AND exm_users.user_team_id = exm_user_teams.id
+                    AND exm_user_teams.group_id = exm_user_groups.id
+                    AND (ue_status = 'open' || ue_status = 'paused')
+                    AND exam_id = $exam_id
+                    $group_where
+                    $team_where
+                    $date_where
+                    ORDER BY team_name, user_login";
+            $res = $this->db->query($sql);*/
+
+        $this->db->select("count(TB.id) AS total");
+        $this->db->from('exm_results TA');
+        $this->db->join('exm_user_exams TB','TB.id = TA.user_exam_id', 'left');
+        $this->db->join('exm_users TC','TC.id = TB.user_id', 'left');
+        $this->db->join('exm_user_teams TD','TD.id = TC.user_team_id', 'left');
+        $this->db->join('exm_user_groups TE','TE.id = TD.group_id', 'left');
+
+        if ($group_id > 0){
+                $this->db->where('TD.group_id',$group_id);
+            }
+            if($team_id > 0){
+                $this->db->where('TC.user_team_id',$team_id);
+            }
+            if ($start_date != '' && $end_date != '') {
+                $date_where = "('". $start_date ."' <= result_start_time AND DATEADD(DAY,1,'".$end_date."') > result_end_time)";
+                $this->db->where($date_where);
+            }
+            $this->db->where("ue_status = 'open' or ue_status = 'paused'");
+            $query = $this->db->get();
+            if ($query->num_rows() > 0) {
+                return (int)$query->row()->total;
+            } else {
+                return 0;
+            }
+        } else {
+            $this->error_message = 'Invalid exam id.';
+            return false;
+        }
+    }
+
+    public function get_result($result_id)
+    {
+        $result_id = (int)$result_id;
+        if ($result_id > 0) {
+            $this->db->where('id', $result_id);
+            $this->db->limit(1);
+            $query = $this->db->get($this->table_name);
+            if ($query->num_rows() > 0) {
+                return $query->row();
+            } else {
+                return false;
+            }
+        } else {
+            return false;
+        }
+    }
+
+    public function get_result_by_user_exam_id($user_exam_id)
+    {
+        $user_exam_id = (int)$user_exam_id;
+
+        if ($user_exam_id > 0) {
+            $this->db->where('user_exam_id', $user_exam_id);
+            $this->db->limit(1);
+            $query = $this->db->get($this->table_name);
+
+            if ($query->num_rows() > 0) {
+                return $query->row();
+            } else {
+                return false;
+            }
+        } else {
+            return false;
+        }
+    }
+
+    public function add_result($user_exam_id, $result)
+    {
+        $user_exam_id = (int)$user_exam_id;
+        $old_result = $this->get_result_by_user_exam_id($user_exam_id);
+        
+        if ($old_result == false) {
+
+            $this->db->insert($this->table_name, $result);
+
+            if ($this->db->affected_rows() > 0) {
+                return $this->db->insert_id();
+            } else {
+                return false;
+            }
+
+        } else {
+            return true;
+        }
+    }
+
+    public function update_result($user_exam_id, $result)
+    {
+        $user_exam_id = (int)$user_exam_id;
+        $old_result = $this->get_result_by_user_exam_id($user_exam_id);
+
+        if ($old_result == false) {
+
+            return $this->add_result($user_exam_id, $result);
+
+        } else {
+
+            $this->db->where('user_exam_id', $user_exam_id);
+            $this->db->limit(1);
+            $this->db->update($this->table_name, $result);
+
+            return true;
+        }
+    }
+
+    public function update_result_exam_state($result_id, $exam_state)
+    {
+        $result_id = (int)$result_id;
+
+        $data = array(
+            'result_exam_state' => maybe_serialize($exam_state)
+        );
+
+        $this->db->where('id', $result_id);
+        $this->db->limit(1);
+        $res =$this->db->update($this->table_name, $data);
+
+        if ($res > 0) {
+            return true;
+        } else {
+            $this->error_message = 'User result update unsuccessful. DB error.';
+            return 0;
+        }
+    }
+
+    public function update_result_exam_status($result_id)
+    {
+        $result_id = (int)$result_id;
+
+        $data = array(
+            'result_status' => 'published'
+        );
+
+        $this->db->where('id', $result_id);
+        $this->db->limit(1);
+        $res =$this->db->update($this->table_name, $data);
+
+        if ($res > 0) {
+            return true;
+        } else {
+            $this->error_message = 'User result status update unsuccessful. DB error.';
+            return 0;
+        }
+    }
+
+    public function delete_result_by_user_exam($user_exam_id)
+    {
+        $user_exam_id = (int)$user_exam_id;
+
+        if ($user_exam_id > 0) {
+
+            $this->db->where('user_exam_id', $user_exam_id);
+            $this->db->limit(1);
+            $this->db->delete($this->table_name);
+
+            $res = (int)$this->db->affected_rows();
+
+            if ($res > 0) {
+                return true;
+            } else {
+                $this->error_message = 'User result delete unsuccessful. DB error.';
+                return 0;
+            }
+
+        } else {
+            $this->error_message = 'Invalid Id.';
+            return 0;
+        }
+    }
+
+    public function calculate_competency_level($score, $competency)
+    {
+        $competency_level = '';
+
+        if ( ! $competency) {
+            return $competency_level;
+        }
+
+        $score = (float)$score;
+
+        for($i=0; $i<count($competency); $i++) {
+
+            $label = $competency[$i]['label'];
+            $lower = (int)$competency[$i]['lower'];
+            $higher = (int)$competency[$i]['higher'];
+
+            if ($score >= $lower && $score <= $higher) {
+                $competency_level = $label;
+                break;
+            }
+        }
+
+        return $competency_level;
+    }
+}
+
+/* End of file result_model.php */
+/* Location: ./application/models/result_model.php */

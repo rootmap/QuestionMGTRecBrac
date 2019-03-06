@@ -1,0 +1,51 @@
+USE [brac_qms]
+GO
+
+ALTER TABLE exm_categories
+ADD created_by int NOT NULL DEFAULT (0);
+GO
+
+ALTER TABLE exm_categories
+ADD created_at DATETIME NOT NULL DEFAULT (GETDATE());
+GO
+
+
+ALTER TABLE exm_users
+ADD is_password_reset int NOT NULL DEFAULT (0);
+GO
+
+USE [brac_qms]
+GO
+
+/****** Object:  Table [dbo].[exm_result_upload]    Script Date: 2/15/2018 5:56:08 PM ******/
+SET ANSI_NULLS ON
+GO
+
+SET QUOTED_IDENTIFIER ON
+GO
+
+CREATE TABLE [dbo].[exm_result_upload](
+	[id] [bigint] IDENTITY(1,1) NOT NULL,
+	[examinee_id] [varchar](50) NOT NULL,
+	[result_status] [varchar](300) NULL,
+	[result_total_question] [bigint] NULL,
+	[result_total_answered] [varchar](50) NULL,
+	[result_total_correct] [bigint] NULL,
+	[result_total_wrong] [bigint] NULL,
+	[result_exam_score] [float] NULL,
+	[result_user_score] [float] NULL,
+	[result_competency_level] [varchar](50) NULL,
+	[result_time_spent] [varchar](50) NULL,
+	[exam_start_time] [varchar](50) NULL,
+	[exam_end_time] [varchar](50) NULL,
+	[exam_id] [bigint] NULL,
+	[set_id] [bigint] NULL,
+	[user_exam_id] [bigint] NULL
+) ON [PRIMARY]
+
+GO
+
+ALTER TABLE [dbo].[exm_result_upload] ADD  CONSTRAINT [DF_exm_result_upload_created_at]  DEFAULT (getdate()) FOR [result_total_answered]
+GO
+
+
