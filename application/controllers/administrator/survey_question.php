@@ -147,7 +147,7 @@ class Survey_question extends MY_Controller
                 '0' => array('data'=> 'Question', 'min-width' => '30%'),
                 '1' => array('data'=> 'Category'),
                 '2' => array('data'=> 'Status'),
-                '3' => array('data'=> 'Bulk Status Change'),
+                '3' => array('data'=> 'Select'),
                 '4' => array('data'=> 'Type', 'class' => 'center', 'width' => '120'),
                 '5' => array('data'=> 'Is Expired?', 'class' => 'center', 'width' => '80'),
                 '6' => array('data'=> 'Action', 'class' => 'center', 'width' => '50')

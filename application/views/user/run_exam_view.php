@@ -32,7 +32,7 @@ if ((int)$exam->exam_time > 0) {
 //print_r_pre($exam);
 $total_questions = $exam->exam_total_questions;
 $current_question_number = $exam->current_question_index + 1;
-$question_number_str = 'Question NO: '. $current_question_number .' of '. $total_questions;
+$question_number_str = 'Question No: '. $current_question_number .' of '. $total_questions;
 
 
 $question = $exam->current_question;

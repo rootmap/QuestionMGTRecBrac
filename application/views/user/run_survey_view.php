@@ -6,7 +6,7 @@ $current_question = $survey->current_question;
 
 $total_questions = $survey->survey_total_questions;
 $current_question_number = $survey->current_question_index + 1;
-$question_number_str = 'Question NO: '. $current_question_number .' of '. $total_questions;
+$question_number_str = 'Question No: '. $current_question_number .' of '. $total_questions;
 
 
 $question = $survey->current_question;
